@@ -1,23 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:game_template/main.dart';
+import 'package:game_template/src/games_services/games_services.dart';
 import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 
-import '../audio/audio_controller.dart';
 import '../audio/sounds.dart';
-import '../games_services/games_services.dart';
-import '../settings/settings.dart';
-import '../style/palette.dart';
 import '../style/responsive_screen.dart';
 
-class MainMenuScreen extends StatelessWidget {
+class MainMenuScreen extends HookConsumerWidget {
   const MainMenuScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final palette = context.watch<Palette>();
-    final gamesServicesController = context.watch<GamesServicesController?>();
-    final settingsController = context.watch<SettingsController>();
-    final audioController = context.watch<AudioController>();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final palette = ref.watch(paletteProvider);
+    final audioController = ref.watch(audioControllerProvider);
+    final settingsController = ref.watch(settingsControllerProvider);
+    final GamesServicesController? gamesServicesController =
+        gamesServicesControllerProvider != null ? ref.watch(gamesServicesControllerProvider!) : null;
 
     return Scaffold(
       backgroundColor: palette.backgroundMain,

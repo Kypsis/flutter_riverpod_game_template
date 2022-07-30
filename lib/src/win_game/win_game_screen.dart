@@ -1,27 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:game_template/main.dart';
 import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 
-import '../ads/ads_controller.dart';
 import '../ads/banner_ad_widget.dart';
 import '../games_services/score.dart';
 import '../in_app_purchase/in_app_purchase.dart';
-import '../style/palette.dart';
 import '../style/responsive_screen.dart';
 
-class WinGameScreen extends StatelessWidget {
+class WinGameScreen extends HookConsumerWidget {
   final Score score;
 
-  const WinGameScreen({
-    super.key,
-    required this.score,
-  });
+  const WinGameScreen({super.key, required this.score});
 
   @override
-  Widget build(BuildContext context) {
-    final adsControllerAvailable = context.watch<AdsController?>() != null;
-    final adsRemoved = context.watch<InAppPurchaseController?>()?.adRemoval.active ?? false;
-    final palette = context.watch<Palette>();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final palette = ref.watch(paletteProvider);
+    final adsRemoved =
+        inAppPurchaseControllerProvider != null ? ref.watch(inAppPurchaseControllerProvider!).active : false;
+    final adsControllerAvailable = (adsControllerProvider) != null;
 
     const gap = SizedBox(height: 10);
 

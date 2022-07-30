@@ -1,24 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:game_template/main.dart';
 import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 
-import '../audio/audio_controller.dart';
 import '../audio/sounds.dart';
-import '../player_progress/player_progress.dart';
-import '../style/palette.dart';
 import '../style/responsive_screen.dart';
 import 'levels.dart';
 
-class LevelSelectionScreen extends StatelessWidget {
+class LevelSelectionScreen extends HookConsumerWidget {
   const LevelSelectionScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final palette = context.watch<Palette>();
-    final playerProgress = context.watch<PlayerProgress>();
-
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
-      backgroundColor: palette.backgroundLevelSelection,
+      backgroundColor: ref.watch(paletteProvider).backgroundLevelSelection,
       body: ResponsiveScreen(
         squarishMainArea: Column(
           children: [
@@ -37,10 +32,9 @@ class LevelSelectionScreen extends StatelessWidget {
                 children: [
                   for (final level in gameLevels)
                     ListTile(
-                      enabled: playerProgress.highestLevelReached >= level.number - 1,
+                      enabled: ref.watch(playerProgressProvider) >= level.number - 1,
                       onTap: () {
-                        final audioController = context.read<AudioController>();
-                        audioController.playSfx(SfxType.buttonTap);
+                        ref.read(audioControllerProvider).playSfx(SfxType.buttonTap);
 
                         GoRouter.of(context).go('/play/session/${level.number}');
                       },

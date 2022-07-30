@@ -1,23 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:game_template/main.dart';
 import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 
-import '../in_app_purchase/in_app_purchase.dart';
-import '../player_progress/player_progress.dart';
-import '../style/palette.dart';
 import '../style/responsive_screen.dart';
 import 'custom_name_dialog.dart';
 import 'settings.dart';
 
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends HookConsumerWidget {
   const SettingsScreen({super.key});
 
   static const _gap = SizedBox(height: 60);
 
   @override
-  Widget build(BuildContext context) {
-    final settings = context.watch<SettingsController>();
-    final palette = context.watch<Palette>();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(settingsControllerProvider);
+    final palette = ref.watch(paletteProvider);
 
     return Scaffold(
       backgroundColor: palette.backgroundSettings,
@@ -54,8 +52,8 @@ class SettingsScreen extends StatelessWidget {
                 onSelected: () => settings.toggleMusicOn(),
               ),
             ),
-            Consumer<InAppPurchaseController?>(builder: (context, inAppPurchase, child) {
-              if (inAppPurchase == null) {
+            Consumer(builder: (context, ref, child) {
+              if (inAppPurchaseControllerProvider == null) {
                 // In-app purchases are not supported yet.
                 // Go to lib/main.dart and uncomment the lines that create
                 // the InAppPurchaseController.
@@ -64,14 +62,20 @@ class SettingsScreen extends StatelessWidget {
 
               Widget icon;
               VoidCallback? callback;
-              if (inAppPurchase.adRemoval.active) {
+              if (inAppPurchaseControllerProvider != null
+                  ? ref.watch(inAppPurchaseControllerProvider!).active
+                  : false) {
                 icon = const Icon(Icons.check);
-              } else if (inAppPurchase.adRemoval.pending) {
+              } else if (inAppPurchaseControllerProvider != null
+                  ? ref.watch(inAppPurchaseControllerProvider!).pending
+                  : false) {
                 icon = const CircularProgressIndicator();
               } else {
                 icon = const Icon(Icons.ad_units);
                 callback = () {
-                  inAppPurchase.buy();
+                  if (inAppPurchaseControllerProvider != null) {
+                    ref.read(inAppPurchaseControllerProvider!.notifier).buy();
+                  }
                 };
               }
               return _SettingsLine(
@@ -84,7 +88,7 @@ class SettingsScreen extends StatelessWidget {
               'Reset progress',
               const Icon(Icons.delete),
               onSelected: () {
-                context.read<PlayerProgress>().reset();
+                ref.read(playerProgressProvider.notifier).reset();
 
                 final messenger = ScaffoldMessenger.of(context);
                 messenger.showSnackBar(
@@ -106,14 +110,14 @@ class SettingsScreen extends StatelessWidget {
   }
 }
 
-class _NameChangeLine extends StatelessWidget {
+class _NameChangeLine extends HookConsumerWidget {
   final String title;
 
   const _NameChangeLine(this.title);
 
   @override
-  Widget build(BuildContext context) {
-    final settings = context.watch<SettingsController>();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch<SettingsController>(settingsControllerProvider);
 
     return InkResponse(
       highlightShape: BoxShape.rectangle,

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
-import 'settings.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:game_template/main.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 void showCustomNameDialog(BuildContext context) {
   showGeneralDialog(
@@ -9,30 +10,29 @@ void showCustomNameDialog(BuildContext context) {
       pageBuilder: (context, animation, secondaryAnimation) => CustomNameDialog(animation: animation));
 }
 
-class CustomNameDialog extends StatefulWidget {
+class CustomNameDialog extends HookConsumerWidget {
   final Animation<double> animation;
 
-  const CustomNameDialog({required this.animation, super.key});
+  const CustomNameDialog({super.key, required this.animation});
 
   @override
-  State<CustomNameDialog> createState() => _CustomNameDialogState();
-}
+  Widget build(BuildContext context, ref) {
+    final controller = useTextEditingController();
 
-class _CustomNameDialogState extends State<CustomNameDialog> {
-  final TextEditingController _controller = TextEditingController();
+    useEffect(() {
+      controller.text = ref.read(settingsControllerProvider).playerName.value;
+    });
 
-  @override
-  Widget build(BuildContext context) {
     return ScaleTransition(
       scale: CurvedAnimation(
-        parent: widget.animation,
+        parent: animation,
         curve: Curves.easeOutCubic,
       ),
       child: SimpleDialog(
         title: const Text('Change name'),
         children: [
           TextField(
-            controller: _controller,
+            controller: controller,
             autofocus: true,
             maxLength: 12,
             maxLengthEnforcement: MaxLengthEnforcement.enforced,
@@ -40,7 +40,7 @@ class _CustomNameDialogState extends State<CustomNameDialog> {
             textCapitalization: TextCapitalization.words,
             textInputAction: TextInputAction.done,
             onChanged: (value) {
-              context.read<SettingsController>().setPlayerName(value);
+              ref.read(settingsControllerProvider).setPlayerName(value);
             },
             onSubmitted: (value) {
               // Player tapped 'Submit'/'Done' on their keyboard.
@@ -54,17 +54,5 @@ class _CustomNameDialogState extends State<CustomNameDialog> {
         ],
       ),
     );
-  }
-
-  @override
-  void didChangeDependencies() {
-    _controller.text = context.read<SettingsController>().playerName.value;
-    super.didChangeDependencies();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
   }
 }

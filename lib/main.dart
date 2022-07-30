@@ -3,16 +3,23 @@
 // import 'package:firebase_core/firebase_core.dart';
 // import 'firebase_options.dart';
 
+import 'dart:io';
+
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:game_template/src/audio/audio_controller.dart';
+import 'package:game_template/src/in_app_purchase/ad_removal.dart';
+import 'package:game_template/src/player_progress/player_progress.dart';
+import 'package:game_template/src/settings/settings.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:logging/logging.dart';
 
 import 'src/ads/ads_controller.dart';
-import 'src/app_lifecycle/app_lifecycle.dart';
 import 'src/crashlytics/crashlytics.dart';
 import 'src/games_services/games_services.dart';
 import 'src/games_services/score.dart';
@@ -22,9 +29,7 @@ import 'src/level_selection/levels.dart';
 import 'src/main_menu/main_menu_screen.dart';
 import 'src/play_session/play_session_screen.dart';
 import 'src/player_progress/persistence/local_storage_player_progress_persistence.dart';
-import 'src/player_progress/persistence/player_progress_persistence.dart';
 import 'src/settings/persistence/local_storage_settings_persistence.dart';
-import 'src/settings/persistence/settings_persistence.dart';
 import 'src/settings/settings_screen.dart';
 import 'src/style/my_transition.dart';
 import 'src/style/palette.dart';
@@ -74,59 +79,52 @@ void guardedMain() {
     SystemUiMode.edgeToEdge,
   );
 
-  // TODO: When ready, uncomment the following lines to enable integrations.
-  //       Read the README for more info on each integration.
-
-  AdsController? adsController;
-  // if (!kIsWeb && (Platform.isIOS || Platform.isAndroid)) {
-  //   /// Prepare the google_mobile_ads plugin so that the first ad loads
-  //   /// faster. This can be done later or with a delay if startup
-  //   /// experience suffers.
-  //   adsController = AdsController(MobileAds.instance);
-  //   adsController.initialize();
-  //   final adsControllerProvider = Provider<AdsController>((ref) {
-  //     return AdsController(MobileAds.instance);
-  //       });
-  //   adsControllerProvider.value.initialize();
-  // }
-
-  GamesServicesController? gamesServicesController;
-  // if (!kIsWeb && (Platform.isIOS || Platform.isAndroid)) {
-  //   gamesServicesController = GamesServicesController()
-  //     // Attempt to log the player in.
-  //     ..initialize();
-  // }
-
-  InAppPurchaseController? inAppPurchaseController;
-  // if (!kIsWeb && (Platform.isIOS || Platform.isAndroid)) {
-  //   inAppPurchaseController = InAppPurchaseController(InAppPurchase.instance)
-  //     // Subscribing to [InAppPurchase.instance.purchaseStream] as soon
-  //     // as possible in order not to miss any updates.
-  //     ..subscribe();
-  //   // Ask the store what the player has bought already.
-  //   inAppPurchaseController.restorePurchases();
-  // }
-
   runApp(
-    ProviderScope(
-      child: MyApp(
-        settingsPersistence: LocalStorageSettingsPersistence(),
-        playerProgressPersistence: LocalStoragePlayerProgressPersistence(),
-        inAppPurchaseController: inAppPurchaseController,
-        adsController: adsController,
-        gamesServicesController: gamesServicesController,
-      ),
+    const ProviderScope(
+      child: MyApp(),
     ),
   );
 }
 
 Logger _log = Logger('main.dart');
 
-/// Caches and Exposes a [GoRouter]
+// Prepare the google_mobile_ads plugin so that the first ad loads faster. This can be done later or with a delay if
+// startup experience suffers.
+final adsControllerProvider = (!kIsWeb && (Platform.isIOS || Platform.isAndroid))
+    ? Provider<AdsController>((ref) => AdsController(MobileAds.instance)..initialize())
+    : null;
+
+// Attempt to log the player in.
+final gamesServicesControllerProvider = (!kIsWeb && (Platform.isIOS || Platform.isAndroid))
+    ? Provider<GamesServicesController>((ref) => GamesServicesController()..initialize())
+    : null;
+
+// Subscribing to [InAppPurchase.instance.purchaseStream] as soon as possible in order not to miss any updates and
+// ask the store what the player has bought already.
+final inAppPurchaseControllerProvider = (!kIsWeb && (Platform.isIOS || Platform.isAndroid))
+    ? StateNotifierProvider<InAppPurchaseController, AdRemovalPurchase>(
+        (ref) => InAppPurchaseController(InAppPurchase.instance)
+          ..subscribe()
+          ..restorePurchases(),
+      )
+    : null;
+
+final paletteProvider = Provider<Palette>((ref) => Palette());
+
+final audioControllerProvider = Provider<AudioController>((ref) => AudioController()..initialize());
+
+final playerProgressProvider = StateNotifierProvider<PlayerProgress, int>(
+  (ref) => PlayerProgress(LocalStoragePlayerProgressPersistence())..getLatestFromStore(),
+);
+
+final settingsControllerProvider = Provider<SettingsController>(
+  (ref) => SettingsController(persistence: LocalStorageSettingsPersistence())..loadStateFromPersistence(),
+);
+
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
-    debugLogDiagnostics: true, // For demo purposes
-    // This notifiies `GoRouter` for refresh events // All the logic is centralized here
+    debugLogDiagnostics: true,
+
     routes: [
       GoRoute(path: '/', builder: (context, state) => const MainMenuScreen(key: Key('main menu')), routes: [
         GoRoute(
@@ -176,61 +174,27 @@ final routerProvider = Provider<GoRouter>((ref) {
 });
 
 class MyApp extends HookConsumerWidget {
-  final PlayerProgressPersistence playerProgressPersistence;
-
-  final SettingsPersistence settingsPersistence;
-
-  final GamesServicesController? gamesServicesController;
-
-  final InAppPurchaseController? inAppPurchaseController;
-
-  final AdsController? adsController;
-
-  const MyApp({
-    required this.playerProgressPersistence,
-    required this.settingsPersistence,
-    required this.inAppPurchaseController,
-    required this.adsController,
-    required this.gamesServicesController,
-    super.key,
-  });
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return AppLifecycleObserver(
-      child: MaterialApp.router(
-        title: 'Flutter Demo',
-        theme: ThemeData.from(
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: ref.read(paletteProvider).darkPen,
-            background: ref.read(paletteProvider).backgroundMain,
-          ),
-          textTheme: TextTheme(
-            bodyText2: TextStyle(
-              color: ref.read(paletteProvider).ink,
-            ),
+    return MaterialApp.router(
+      title: 'Flutter Demo',
+      theme: ThemeData.from(
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: ref.read(paletteProvider).darkPen,
+          background: ref.read(paletteProvider).backgroundMain,
+        ),
+        textTheme: TextTheme(
+          bodyText2: TextStyle(
+            color: ref.read(paletteProvider).ink,
           ),
         ),
-        routeInformationParser: ref.read(routerProvider).routeInformationParser,
-        routerDelegate: ref.read(routerProvider).routerDelegate,
-        scaffoldMessengerKey: scaffoldMessengerKey,
       ),
+      routeInformationParser: ref.read(routerProvider).routeInformationParser,
+      routeInformationProvider: ref.read(routerProvider).routeInformationProvider,
+      routerDelegate: ref.read(routerProvider).routerDelegate,
+      scaffoldMessengerKey: scaffoldMessengerKey,
     );
   }
 }
-
-
-/* ProxyProvider2<SettingsController, ValueNotifier<AppLifecycleState>, AudioController>(
-            // Ensures that the AudioController is created on startup,
-            // and not "only when it's needed", as is default behavior.
-            // This way, music starts immediately.
-            lazy: false,
-            create: (context) => AudioController()..initialize(),
-            update: (context, settings, lifecycleNotifier, audio) {
-              if (audio == null) throw ArgumentError.notNull();
-              audio.attachSettings(settings);
-              audio.attachLifecycleNotifier(lifecycleNotifier);
-              return audio;
-            },
-            dispose: (context, audio) => audio.dispose(),
-          ), */

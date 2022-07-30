@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 /// A palette of colors to be used in the game.
 ///
@@ -19,10 +18,6 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 /// as `static const`. But this way the palette is more malleable:
 /// we could allow players to customize colors, for example,
 /// or even get the colors from the network.
-
-final paletteProvider = Provider<Palette>((ref) {
-  return Palette();
-});
 
 class Palette {
   Color get pen => const Color(0xff1d75fb);
