@@ -14,7 +14,6 @@ class MainMenuScreen extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final palette = ref.watch(paletteProvider);
     final audioController = ref.watch(audioControllerProvider);
-    final settingsController = ref.watch(settingsControllerProvider);
     final GamesServicesController? gamesServicesController =
         gamesServicesControllerProvider != null ? ref.watch(gamesServicesControllerProvider!) : null;
 
@@ -72,12 +71,12 @@ class MainMenuScreen extends HookConsumerWidget {
             _gap,
             Padding(
               padding: const EdgeInsets.only(top: 32),
-              child: ValueListenableBuilder<bool>(
-                valueListenable: settingsController.muted,
-                builder: (context, muted, child) {
+              child: Consumer(
+                builder: (context, ref, child) {
+                  ref.watch(settingsControllerProvider);
                   return IconButton(
-                    onPressed: () => settingsController.toggleMuted(),
-                    icon: Icon(muted ? Icons.volume_off : Icons.volume_up),
+                    onPressed: () => ref.read(settingsControllerProvider.notifier).toggleMuted(),
+                    icon: Icon(ref.watch(settingsControllerProvider).muted ? Icons.volume_off : Icons.volume_up),
                   );
                 },
               ),

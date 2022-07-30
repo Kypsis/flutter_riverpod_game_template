@@ -111,14 +111,14 @@ final inAppPurchaseControllerProvider = (!kIsWeb && (Platform.isIOS || Platform.
 
 final paletteProvider = Provider<Palette>((ref) => Palette());
 
-final audioControllerProvider = Provider<AudioController>((ref) => AudioController()..initialize());
+final settingsControllerProvider = StateNotifierProvider<SettingsController, Settings>(
+  (ref) => SettingsController(persistence: LocalStorageSettingsPersistence())..loadStateFromPersistence(),
+);
+
+final audioControllerProvider = Provider<AudioController>((ref) => AudioController(ref)..initialize());
 
 final playerProgressProvider = StateNotifierProvider<PlayerProgress, int>(
   (ref) => PlayerProgress(LocalStoragePlayerProgressPersistence())..getLatestFromStore(),
-);
-
-final settingsControllerProvider = Provider<SettingsController>(
-  (ref) => SettingsController(persistence: LocalStorageSettingsPersistence())..loadStateFromPersistence(),
 );
 
 final routerProvider = Provider<GoRouter>((ref) {

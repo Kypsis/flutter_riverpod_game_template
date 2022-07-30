@@ -5,7 +5,6 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import '../ads/banner_ad_widget.dart';
 import '../games_services/score.dart';
-import '../in_app_purchase/in_app_purchase.dart';
 import '../style/responsive_screen.dart';
 
 class WinGameScreen extends HookConsumerWidget {

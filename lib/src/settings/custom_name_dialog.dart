@@ -20,7 +20,8 @@ class CustomNameDialog extends HookConsumerWidget {
     final controller = useTextEditingController();
 
     useEffect(() {
-      controller.text = ref.read(settingsControllerProvider).playerName.value;
+      controller.text = ref.read(settingsControllerProvider).playerName;
+      return null;
     });
 
     return ScaleTransition(
@@ -40,7 +41,7 @@ class CustomNameDialog extends HookConsumerWidget {
             textCapitalization: TextCapitalization.words,
             textInputAction: TextInputAction.done,
             onChanged: (value) {
-              ref.read(settingsControllerProvider).setPlayerName(value);
+              ref.read(settingsControllerProvider.notifier).setPlayerName(value);
             },
             onSubmitted: (value) {
               // Player tapped 'Submit'/'Done' on their keyboard.

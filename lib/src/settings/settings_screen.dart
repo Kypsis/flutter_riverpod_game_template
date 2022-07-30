@@ -5,7 +5,6 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import '../style/responsive_screen.dart';
 import 'custom_name_dialog.dart';
-import 'settings.dart';
 
 class SettingsScreen extends HookConsumerWidget {
   const SettingsScreen({super.key});
@@ -14,7 +13,6 @@ class SettingsScreen extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final settings = ref.watch(settingsControllerProvider);
     final palette = ref.watch(paletteProvider);
 
     return Scaffold(
@@ -36,20 +34,18 @@ class SettingsScreen extends HookConsumerWidget {
             const _NameChangeLine(
               'Name',
             ),
-            ValueListenableBuilder<bool>(
-              valueListenable: settings.soundsOn,
-              builder: (context, soundsOn, child) => _SettingsLine(
+            Consumer(
+              builder: (context, ref, child) => _SettingsLine(
                 'Sound FX',
-                Icon(soundsOn ? Icons.graphic_eq : Icons.volume_off),
-                onSelected: () => settings.toggleSoundsOn(),
+                Icon(ref.watch(settingsControllerProvider).soundsOn ? Icons.graphic_eq : Icons.volume_off),
+                onSelected: () => ref.watch(settingsControllerProvider.notifier).toggleSoundsOn(),
               ),
             ),
-            ValueListenableBuilder<bool>(
-              valueListenable: settings.musicOn,
-              builder: (context, musicOn, child) => _SettingsLine(
+            Consumer(
+              builder: (context, ref, child) => _SettingsLine(
                 'Music',
-                Icon(musicOn ? Icons.music_note : Icons.music_off),
-                onSelected: () => settings.toggleMusicOn(),
+                Icon(ref.watch(settingsControllerProvider).musicOn ? Icons.music_note : Icons.music_off),
+                onSelected: () => ref.watch(settingsControllerProvider.notifier).toggleMusicOn(),
               ),
             ),
             Consumer(builder: (context, ref, child) {
@@ -117,8 +113,6 @@ class _NameChangeLine extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final settings = ref.watch<SettingsController>(settingsControllerProvider);
-
     return InkResponse(
       highlightShape: BoxShape.rectangle,
       onTap: () => showCustomNameDialog(context),
@@ -133,10 +127,9 @@ class _NameChangeLine extends HookConsumerWidget {
                   fontSize: 30,
                 )),
             const Spacer(),
-            ValueListenableBuilder(
-              valueListenable: settings.playerName,
-              builder: (context, name, child) => Text(
-                '‘$name’',
+            Consumer(
+              builder: (context, ref, child) => Text(
+                '‘${ref.watch(settingsControllerProvider).playerName}’',
                 style: const TextStyle(
                   fontFamily: 'Permanent Marker',
                   fontSize: 30,

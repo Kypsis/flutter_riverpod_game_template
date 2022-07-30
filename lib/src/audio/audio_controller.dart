@@ -3,6 +3,8 @@ import 'dart:math';
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/widgets.dart';
+import 'package:game_template/main.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:logging/logging.dart';
 
 import '../settings/settings.dart';
@@ -17,6 +19,8 @@ class AudioController {
 
   final AudioPlayer _musicPlayer;
 
+  final ProviderRef _ref;
+
   /// This is a list of [AudioPlayer] instances which are rotated to play
   /// sound effects.
   ///
@@ -28,8 +32,6 @@ class AudioController {
   final Queue<Song> _playlist;
 
   final Random _random = Random();
-
-  SettingsController? _settings;
 
   // TODO: hookify this
   ValueNotifier<AppLifecycleState>? _lifecycleNotifier;
@@ -43,7 +45,7 @@ class AudioController {
   ///
   /// Background music does not count into the [polyphony] limit. Music will
   /// never be overridden by sound effects.
-  AudioController({int polyphony = 2})
+  AudioController(this._ref, {int polyphony = 2})
       : assert(polyphony >= 1),
         _musicPlayer = AudioPlayer(playerId: 'musicPlayer'),
         _sfxPlayers =
@@ -65,36 +67,6 @@ class AudioController {
     _lifecycleNotifier = lifecycleNotifier;
   }
 
-  /// Enables the [AudioController] to track changes to settings.
-  /// Namely, when any of [SettingsController.muted],
-  /// [SettingsController.musicOn] or [SettingsController.soundsOn] changes,
-  /// the audio controller will act accordingly.
-  void attachSettings(SettingsController settingsController) {
-    if (_settings == settingsController) {
-      // Already attached to this instance. Nothing to do.
-      return;
-    }
-
-    // Remove handlers from the old settings controller if present
-    final oldSettings = _settings;
-    if (oldSettings != null) {
-      oldSettings.muted.removeListener(_mutedHandler);
-      oldSettings.musicOn.removeListener(_musicOnHandler);
-      oldSettings.soundsOn.removeListener(_soundsOnHandler);
-    }
-
-    _settings = settingsController;
-
-    // Add handlers to the new settings controller
-    settingsController.muted.addListener(_mutedHandler);
-    settingsController.musicOn.addListener(_musicOnHandler);
-    settingsController.soundsOn.addListener(_soundsOnHandler);
-
-    if (!settingsController.muted.value && settingsController.musicOn.value) {
-      _startMusic();
-    }
-  }
-
   void dispose() {
     _lifecycleNotifier?.removeListener(_handleAppLifecycle);
     _stopAllSound();
@@ -111,6 +83,16 @@ class AudioController {
     // If there are hundreds of long sound effect files, it's better
     // to be more selective when preloading.
     await _sfxCache.loadAll(SfxType.values.expand(soundTypeToFilename).toList());
+
+    if (!_ref.read(settingsControllerProvider).muted && _ref.read(settingsControllerProvider).musicOn) {
+      _startMusic();
+    }
+
+    _ref.read(settingsControllerProvider.notifier).addListener((state) {
+      _musicOnHandler();
+      _mutedHandler();
+      _soundsOnHandler();
+    });
   }
 
   /// Plays a single sound effect, defined by [type].
@@ -119,12 +101,12 @@ class AudioController {
   /// [SettingsController.muted] is `true` or if its
   /// [SettingsController.soundsOn] is `false`.
   void playSfx(SfxType type) {
-    final muted = _settings?.muted.value ?? true;
+    final muted = _ref.read(settingsControllerProvider).muted;
     if (muted) {
       _log.info(() => 'Ignoring playing sound ($type) because audio is muted.');
       return;
     }
-    final soundsOn = _settings?.soundsOn.value ?? false;
+    final soundsOn = _ref.read(settingsControllerProvider).soundsOn;
     if (!soundsOn) {
       _log.info(() => 'Ignoring playing sound ($type) because sounds are turned off.');
       return;
@@ -134,7 +116,8 @@ class AudioController {
     final options = soundTypeToFilename(type);
     final filename = options[_random.nextInt(options.length)];
     _log.info(() => '- Chosen filename: $filename');
-    _sfxPlayers[type.index].play(AssetSource(filename), volume: soundTypeToVolume(type), mode: PlayerMode.lowLatency);
+    /* _sfxPlayers[type.index] */ AudioPlayer()
+        .play(AssetSource("sfx/$filename"), volume: soundTypeToVolume(type), mode: PlayerMode.lowLatency);
   }
 
   void _changeSong(void _) {
@@ -143,7 +126,8 @@ class AudioController {
     _playlist.addLast(_playlist.removeFirst());
     // Play the next song.
     _log.info(() => 'Playing ${_playlist.first} now.');
-    _musicPlayer.play(AssetSource(_playlist.first.filename), mode: PlayerMode.lowLatency);
+    /* _musicPlayer */ AudioPlayer()
+        .play(AssetSource("music/${_playlist.first.filename}"), mode: PlayerMode.lowLatency);
   }
 
   void _handleAppLifecycle() {
@@ -153,7 +137,7 @@ class AudioController {
         _stopAllSound();
         break;
       case AppLifecycleState.resumed:
-        if (!_settings!.muted.value && _settings!.musicOn.value) {
+        if (!_ref.read(settingsControllerProvider).muted && _ref.read(settingsControllerProvider).musicOn) {
           _resumeMusic();
         }
         break;
@@ -164,9 +148,9 @@ class AudioController {
   }
 
   void _musicOnHandler() {
-    if (_settings!.musicOn.value) {
+    if (_ref.read(settingsControllerProvider).musicOn) {
       // Music got turned on.
-      if (!_settings!.muted.value) {
+      if (!_ref.read(settingsControllerProvider).muted) {
         _resumeMusic();
       }
     } else {
@@ -176,12 +160,12 @@ class AudioController {
   }
 
   void _mutedHandler() {
-    if (_settings!.muted.value) {
+    if (_ref.read(settingsControllerProvider).muted) {
       // All sound just got muted.
       _stopAllSound();
     } else {
       // All sound just got un-muted.
-      if (_settings!.musicOn.value) {
+      if (_ref.read(settingsControllerProvider).musicOn) {
         _resumeMusic();
       }
     }
@@ -197,14 +181,14 @@ class AudioController {
         } catch (e) {
           // Sometimes, resuming fails with an "Unexpected" error.
           _log.severe(e);
-          await _musicPlayer.play(AssetSource(_playlist.first.filename), mode: PlayerMode.lowLatency);
+          await _musicPlayer.play(AssetSource("music/${_playlist.first.filename}"), mode: PlayerMode.lowLatency);
         }
         break;
       case PlayerState.stopped:
         _log.info("resumeMusic() called when music is stopped. "
             "This probably means we haven't yet started the music. "
             "For example, the game was started with sound off.");
-        await _musicPlayer.play(AssetSource(_playlist.first.filename), mode: PlayerMode.lowLatency);
+        await _musicPlayer.play(AssetSource("music/${_playlist.first.filename}"), mode: PlayerMode.lowLatency);
         break;
       case PlayerState.playing:
         _log.warning('resumeMusic() called when music is playing. '
@@ -214,7 +198,7 @@ class AudioController {
         _log.warning('resumeMusic() called when music is completed. '
             "Music should never be 'completed' as it's either not playing "
             "or looping forever.");
-        await _musicPlayer.play(AssetSource(_playlist.first.filename), mode: PlayerMode.lowLatency);
+        await _musicPlayer.play(AssetSource("music/${_playlist.first.filename}"), mode: PlayerMode.lowLatency);
         break;
     }
   }
@@ -229,7 +213,7 @@ class AudioController {
 
   void _startMusic() {
     _log.info('starting music');
-    _musicPlayer.play(AssetSource(_playlist.first.filename), mode: PlayerMode.lowLatency);
+    _musicPlayer.play(AssetSource("music/${_playlist.first.filename}"), mode: PlayerMode.lowLatency);
   }
 
   void _stopAllSound() {
