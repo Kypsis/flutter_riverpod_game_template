@@ -16,6 +16,7 @@ class AudioController {
   static final _log = Logger('AudioController');
 
   late AudioCache _sfxCache;
+  late List<Uri> _sfxCacheFilenames;
 
   final AudioPlayer _musicPlayer;
 
@@ -51,7 +52,6 @@ class AudioController {
         _sfxPlayers =
             Iterable.generate(polyphony, (i) => AudioPlayer(playerId: 'sfxPlayer#$i')).toList(growable: false),
         _playlist = Queue.of(List<Song>.of(songs)..shuffle()) {
-    AudioCache(prefix: 'assets/music/');
     _sfxCache = AudioCache(prefix: 'assets/sfx/');
 
     _musicPlayer.onPlayerComplete.listen(_changeSong);
@@ -82,7 +82,7 @@ class AudioController {
     // This assumes there is only a limited number of sound effects in the game.
     // If there are hundreds of long sound effect files, it's better
     // to be more selective when preloading.
-    await _sfxCache.loadAll(SfxType.values.expand(soundTypeToFilename).toList());
+    _sfxCacheFilenames = await _sfxCache.loadAll(SfxType.values.expand(soundTypeToFilename).toList());
 
     if (!_ref.read(settingsControllerProvider).muted && _ref.read(settingsControllerProvider).musicOn) {
       _startMusic();
@@ -116,8 +116,19 @@ class AudioController {
     final options = soundTypeToFilename(type);
     final filename = options[_random.nextInt(options.length)];
     _log.info(() => '- Chosen filename: $filename');
-    /* _sfxPlayers[type.index] */ AudioPlayer()
-        .play(AssetSource("sfx/$filename"), volume: soundTypeToVolume(type), mode: PlayerMode.lowLatency);
+
+    //TODO: create a dynamic solution to utilize free player for new audio event
+    /* _sfxPlayers[type.index] */ _sfxPlayers[0].state == PlayerState.playing
+        ? _sfxPlayers[1].play(
+            AssetSource(
+                "sfx/${_sfxCacheFilenames.firstWhere((element) => element.pathSegments.last.contains(filename)).pathSegments.last}"),
+            volume: soundTypeToVolume(type),
+            mode: PlayerMode.lowLatency)
+        : _sfxPlayers[0].play(
+            AssetSource(
+                "sfx/${_sfxCacheFilenames.firstWhere((element) => element.pathSegments.last.contains(filename)).pathSegments.last}"),
+            volume: soundTypeToVolume(type),
+            mode: PlayerMode.lowLatency);
   }
 
   void _changeSong(void _) {
@@ -126,8 +137,7 @@ class AudioController {
     _playlist.addLast(_playlist.removeFirst());
     // Play the next song.
     _log.info(() => 'Playing ${_playlist.first} now.');
-    /* _musicPlayer */ AudioPlayer()
-        .play(AssetSource("music/${_playlist.first.filename}"), mode: PlayerMode.lowLatency);
+    AudioPlayer().play(AssetSource("music/${_playlist.first.filename}"), mode: PlayerMode.lowLatency);
   }
 
   void _handleAppLifecycle() {
