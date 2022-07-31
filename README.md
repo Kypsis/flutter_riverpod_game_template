@@ -1,3 +1,5 @@
+Google's Flutter game_template modified to use Riverpod, flutter_hooks and freezed.
+
 A starter game in Flutter with all the bells and whistles
 of a mobile (iOS & Android) game including the following features:
 
