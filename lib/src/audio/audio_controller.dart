@@ -35,6 +35,7 @@ class AudioController {
   final Random _random = Random();
 
   // TODO: hookify this
+  // TODO: make lifecycles work again
   ValueNotifier<AppLifecycleState>? _lifecycleNotifier;
 
   /// Creates an instance that plays music and sound.
