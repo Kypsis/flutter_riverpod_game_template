@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:game_template/main.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:logging/logging.dart';
@@ -25,7 +26,7 @@ import 'preloaded_banner_ad.dart';
 /// This widget is adapted from pkg:google_mobile_ads's example code,
 /// namely the `anchored_adaptive_example.dart` file:
 /// https://github.com/googleads/googleads-mobile-flutter/blob/main/packages/google_mobile_ads/example/lib/anchored_adaptive_example.dart
-class BannerAdWidget extends StatefulHookConsumerWidget {
+class BannerAdWidget extends ConsumerStatefulWidget {
   const BannerAdWidget({super.key});
 
   @override
@@ -82,14 +83,13 @@ class BannerAdWidgetState extends ConsumerState<BannerAdWidget> {
   void initState() {
     super.initState();
 
-    /* final adsController = context.read<AdsController>();
-    final ad = adsController.takePreloadedAd();
+    final ad = adsControllerProvider != null ? ref.read(adsControllerProvider!).takePreloadedAd() : null;
     if (ad != null) {
       _log.info("A preloaded banner was supplied. Using it.");
       _showPreloadedAd(ad);
     } else {
       _loadAd();
-    } */
+    }
   }
 
   /// Load (another) ad, disposing of the current ad if there is one.

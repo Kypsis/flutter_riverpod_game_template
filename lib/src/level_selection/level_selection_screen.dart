@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:game_template/main.dart';
+import 'package:game_template/src/style/palette.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
@@ -7,7 +8,7 @@ import '../audio/sounds.dart';
 import '../style/responsive_screen.dart';
 import 'levels.dart';
 
-class LevelSelectionScreen extends HookConsumerWidget {
+class LevelSelectionScreen extends ConsumerWidget {
   const LevelSelectionScreen({super.key});
 
   @override

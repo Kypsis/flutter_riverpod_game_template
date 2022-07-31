@@ -1,22 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:game_template/main.dart';
+import 'package:game_template/src/style/palette.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import '../style/responsive_screen.dart';
 import 'custom_name_dialog.dart';
 
-class SettingsScreen extends HookConsumerWidget {
+class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
   static const _gap = SizedBox(height: 60);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final palette = ref.watch(paletteProvider);
-
     return Scaffold(
-      backgroundColor: palette.backgroundSettings,
+      backgroundColor: ref.watch(paletteProvider).backgroundSettings,
       body: ResponsiveScreen(
         squarishMainArea: ListView(
           children: [
@@ -58,12 +57,20 @@ class SettingsScreen extends HookConsumerWidget {
 
               Widget icon;
               VoidCallback? callback;
+
+              //TODO: refactor to .when if ads enabled
               if (inAppPurchaseControllerProvider != null
-                  ? ref.watch(inAppPurchaseControllerProvider!).active
+                  ? ref.watch(inAppPurchaseControllerProvider!).maybeMap(
+                        active: (value) => true,
+                        orElse: () => false,
+                      )
                   : false) {
                 icon = const Icon(Icons.check);
               } else if (inAppPurchaseControllerProvider != null
-                  ? ref.watch(inAppPurchaseControllerProvider!).pending
+                  ? ref.watch(inAppPurchaseControllerProvider!).maybeMap(
+                        pending: (value) => true,
+                        orElse: () => false,
+                      )
                   : false) {
                 icon = const CircularProgressIndicator();
               } else {
@@ -106,7 +113,7 @@ class SettingsScreen extends HookConsumerWidget {
   }
 }
 
-class _NameChangeLine extends HookConsumerWidget {
+class _NameChangeLine extends ConsumerWidget {
   final String title;
 
   const _NameChangeLine(this.title);

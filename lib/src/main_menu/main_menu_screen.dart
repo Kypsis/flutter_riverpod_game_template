@@ -1,24 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:game_template/main.dart';
 import 'package:game_template/src/games_services/games_services.dart';
+import 'package:game_template/src/style/palette.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import '../audio/sounds.dart';
 import '../style/responsive_screen.dart';
 
-class MainMenuScreen extends HookConsumerWidget {
+class MainMenuScreen extends ConsumerWidget {
   const MainMenuScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final palette = ref.watch(paletteProvider);
-    final audioController = ref.watch(audioControllerProvider);
     final GamesServicesController? gamesServicesController =
         gamesServicesControllerProvider != null ? ref.watch(gamesServicesControllerProvider!) : null;
 
     return Scaffold(
-      backgroundColor: palette.backgroundMain,
+      backgroundColor: ref.watch(paletteProvider).backgroundMain,
       body: ResponsiveScreen(
         mainAreaProminence: 0.45,
         squarishMainArea: Center(
@@ -40,7 +39,7 @@ class MainMenuScreen extends HookConsumerWidget {
           children: [
             ElevatedButton(
               onPressed: () {
-                audioController.playSfx(SfxType.buttonTap);
+                ref.read(audioControllerProvider).playSfx(SfxType.buttonTap);
                 GoRouter.of(context).go('/play');
               },
               child: const Text('Play'),

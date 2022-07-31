@@ -9,10 +9,12 @@ import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:game_template/src/audio/audio_controller.dart';
-import 'package:game_template/src/in_app_purchase/ad_removal.dart';
+import 'package:game_template/src/in_app_purchase/ad_removal_state.gen.dart';
 import 'package:game_template/src/player_progress/player_progress.dart';
 import 'package:game_template/src/settings/settings.dart';
+import 'package:game_template/src/settings/settings_state.gen.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -102,16 +104,14 @@ final gamesServicesControllerProvider = (!kIsWeb && (Platform.isIOS || Platform.
 // Subscribing to [InAppPurchase.instance.purchaseStream] as soon as possible in order not to miss any updates and
 // ask the store what the player has bought already.
 final inAppPurchaseControllerProvider = (!kIsWeb && (Platform.isIOS || Platform.isAndroid))
-    ? StateNotifierProvider<InAppPurchaseController, AdRemovalPurchase>(
+    ? StateNotifierProvider<InAppPurchaseController, AdRemovalPurchaseState>(
         (ref) => InAppPurchaseController(InAppPurchase.instance)
           ..subscribe()
           ..restorePurchases(),
       )
     : null;
 
-final paletteProvider = Provider<Palette>((ref) => Palette());
-
-final settingsControllerProvider = StateNotifierProvider<SettingsController, Settings>(
+final settingsControllerProvider = StateNotifierProvider<SettingsController, SettingsState>(
   (ref) => SettingsController(persistence: LocalStorageSettingsPersistence())..loadStateFromPersistence(),
 );
 
@@ -178,6 +178,8 @@ class MyApp extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    useOnAppLifecycleStateChange((_, current) => ref.read(audioControllerProvider).handleAppLifecycle(current));
+
     return MaterialApp.router(
       title: 'Flutter Demo',
       theme: ThemeData.from(

@@ -1,3 +1,7 @@
+# Freezed generated
+*.freezed.dart
+*.g.dart
+
 # Miscellaneous
 *.class
 *.log

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:game_template/main.dart';
+import 'package:game_template/src/style/palette.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:logging/logging.dart' hide Level;
@@ -13,8 +14,7 @@ import '../games_services/score.dart';
 import '../level_selection/levels.dart';
 import '../style/confetti.dart';
 
-//TODO: hookify this
-class PlaySessionScreen extends StatefulHookConsumerWidget {
+class PlaySessionScreen extends ConsumerStatefulWidget {
   final GameLevel level;
 
   const PlaySessionScreen(this.level, {super.key});
@@ -36,14 +36,13 @@ class PlaySessionScreenState extends ConsumerState<PlaySessionScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final palette = ref.watch(paletteProvider);
     final levelStateProvider =
         StateNotifierProvider<LevelState, int>((ref) => LevelState(onWin: _playerWon, goal: widget.level.difficulty));
 
     return IgnorePointer(
       ignoring: _duringCelebration,
       child: Scaffold(
-        backgroundColor: palette.backgroundPlaySession,
+        backgroundColor: ref.watch(paletteProvider).backgroundPlaySession,
         body: Stack(
           children: [
             Center(
@@ -110,8 +109,12 @@ class PlaySessionScreenState extends ConsumerState<PlaySessionScreen> {
     _startOfPlay = DateTime.now();
 
     // Preload ad for the win screen.
-    final adsRemoved =
-        inAppPurchaseControllerProvider != null ? ref.watch(inAppPurchaseControllerProvider!).active : false;
+    final adsRemoved = inAppPurchaseControllerProvider != null
+        ? ref.read(inAppPurchaseControllerProvider!).maybeMap(
+              active: (value) => true,
+              orElse: () => false,
+            )
+        : false;
     if (!adsRemoved && adsControllerProvider != null) {
       ref.read<AdsController?>(adsControllerProvider!)!.preloadAd();
     }

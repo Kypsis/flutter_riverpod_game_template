@@ -2,6 +2,7 @@ import 'dart:collection';
 import 'dart:math';
 
 import 'package:flutter/widgets.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
 
 /// Shows a confetti (celebratory) animation: paper snippings falling down.
 ///
@@ -13,7 +14,7 @@ import 'package:flutter/widgets.dart';
 ///
 /// This is a partial port of this CodePen by Hemn Chawroka:
 /// https://codepen.io/iprodev/pen/azpWBr
-class Confetti extends StatefulWidget {
+class Confetti extends HookWidget {
   static const _defaultColors = [
     Color(0xffd10841),
     Color(0xff1d75fb),
@@ -22,7 +23,6 @@ class Confetti extends StatefulWidget {
   ];
 
   final bool isStopped;
-
   final List<Color> colors;
 
   const Confetti({
@@ -32,7 +32,28 @@ class Confetti extends StatefulWidget {
   });
 
   @override
-  State<Confetti> createState() => _ConfettiState();
+  Widget build(BuildContext context) {
+    final controller = useAnimationController(duration: const Duration(seconds: 1));
+
+    useEffect(() {
+      if (!isStopped) {
+        controller.repeat();
+      } else {
+        controller.stop();
+      }
+
+      return null;
+    }, [isStopped]);
+
+    return CustomPaint(
+      painter: ConfettiPainter(
+        colors: colors,
+        animation: controller,
+      ),
+      willChange: true,
+      child: const SizedBox.expand(),
+    );
+  }
 }
 
 class ConfettiPainter extends CustomPainter {
@@ -82,53 +103,6 @@ class ConfettiPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) {
     return true;
-  }
-}
-
-class _ConfettiState extends State<Confetti> with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return CustomPaint(
-      painter: ConfettiPainter(
-        colors: widget.colors,
-        animation: _controller,
-      ),
-      willChange: true,
-      child: const SizedBox.expand(),
-    );
-  }
-
-  @override
-  void didUpdateWidget(covariant Confetti oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.isStopped && !widget.isStopped) {
-      _controller.repeat();
-    } else if (!oldWidget.isStopped && widget.isStopped) {
-      _controller.stop(canceled: false);
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      // We don't really care about the duration, since we're going to
-      // use the controller on loop anyway.
-      duration: const Duration(seconds: 1),
-      vsync: this,
-    );
-
-    if (!widget.isStopped) {
-      _controller.repeat();
-    }
   }
 }
 

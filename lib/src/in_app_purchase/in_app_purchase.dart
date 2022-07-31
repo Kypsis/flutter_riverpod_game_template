@@ -5,17 +5,17 @@ import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:logging/logging.dart';
 
 import '../style/snack_bar.dart';
-import 'ad_removal.dart';
+import 'ad_removal_state.gen.dart';
 
 /// Allows buying in-app. Facade of `package:in_app_purchase`.
-class InAppPurchaseController extends StateNotifier<AdRemovalPurchase> {
+class InAppPurchaseController extends StateNotifier<AdRemovalPurchaseState> {
   static final Logger _log = Logger('InAppPurchases');
 
   StreamSubscription<List<PurchaseDetails>>? _subscription;
 
   InAppPurchase inAppPurchaseInstance;
 
-  AdRemovalPurchase _adRemoval = const AdRemovalPurchase.notStarted();
+  AdRemovalPurchaseState _adRemoval = AdRemovalPurchaseState.notStarted();
 
   /// Creates a new [InAppPurchaseController] with an injected
   /// [InAppPurchase] instance.
@@ -23,10 +23,10 @@ class InAppPurchaseController extends StateNotifier<AdRemovalPurchase> {
   /// Example usage:
   ///
   ///     var controller = InAppPurchaseController(InAppPurchase.instance);
-  InAppPurchaseController(this.inAppPurchaseInstance) : super(const AdRemovalPurchase.notStarted());
+  InAppPurchaseController(this.inAppPurchaseInstance) : super(AdRemovalPurchaseState.notStarted());
 
   /// The current state of the ad removal purchase.
-  AdRemovalPurchase get adRemoval => _adRemoval;
+  AdRemovalPurchaseState get adRemoval => _adRemoval;
 
   /// Launches the platform UI for buying an in-app purchase.
   ///
@@ -39,11 +39,11 @@ class InAppPurchaseController extends StateNotifier<AdRemovalPurchase> {
       return;
     }
 
-    _adRemoval = const AdRemovalPurchase.pending();
+    _adRemoval = AdRemovalPurchaseState.pending();
     state = _adRemoval;
 
     _log.info('Querying the store with queryProductDetails()');
-    final response = await inAppPurchaseInstance.queryProductDetails({AdRemovalPurchase.productId});
+    final response = await inAppPurchaseInstance.queryProductDetails({AdRemovalPurchaseState.productId});
 
     if (response.error != null) {
       _reportError('There was an error when making the purchase: '
@@ -57,7 +57,7 @@ class InAppPurchaseController extends StateNotifier<AdRemovalPurchase> {
         '${response.productDetails.map((e) => '${e.id}: ${e.title}, ').join()}',
       );
       _reportError('There was an error when making the purchase: '
-          'product ${AdRemovalPurchase.productId} does not exist?');
+          'product ${AdRemovalPurchaseState.productId} does not exist?');
       return;
     }
     final productDetails = response.productDetails.single;
@@ -118,41 +118,41 @@ class InAppPurchaseController extends StateNotifier<AdRemovalPurchase> {
           'error=${purchaseDetails.error}, '
           'pendingCompletePurchase=${purchaseDetails.pendingCompletePurchase}');
 
-      if (purchaseDetails.productID != AdRemovalPurchase.productId) {
+      if (purchaseDetails.productID != AdRemovalPurchaseState.productId) {
         _log.severe("The handling of the product with id "
             "'${purchaseDetails.productID}' is not implemented.");
-        _adRemoval = const AdRemovalPurchase.notStarted();
+        _adRemoval = AdRemovalPurchaseState.notStarted();
         state = _adRemoval;
         continue;
       }
 
       switch (purchaseDetails.status) {
         case PurchaseStatus.pending:
-          _adRemoval = const AdRemovalPurchase.pending();
+          _adRemoval = AdRemovalPurchaseState.pending();
           state = _adRemoval;
           break;
         case PurchaseStatus.purchased:
         case PurchaseStatus.restored:
           bool valid = await _verifyPurchase(purchaseDetails);
           if (valid) {
-            _adRemoval = const AdRemovalPurchase.active();
+            _adRemoval = AdRemovalPurchaseState.active();
             if (purchaseDetails.status == PurchaseStatus.purchased) {
               showSnackBar('Thank you for your support!');
             }
             state = _adRemoval;
           } else {
             _log.severe('Purchase verification failed: $purchaseDetails');
-            _adRemoval = AdRemovalPurchase.error(StateError('Purchase could not be verified'));
+            _adRemoval = AdRemovalPurchaseState.error(StateError('Purchase could not be verified'));
             state = _adRemoval;
           }
           break;
         case PurchaseStatus.error:
           _log.severe('Error with purchase: ${purchaseDetails.error}');
-          _adRemoval = AdRemovalPurchase.error(purchaseDetails.error!);
+          _adRemoval = AdRemovalPurchaseState.error(purchaseDetails.error!);
           state = _adRemoval;
           break;
         case PurchaseStatus.canceled:
-          _adRemoval = const AdRemovalPurchase.notStarted();
+          _adRemoval = AdRemovalPurchaseState.notStarted();
           state = _adRemoval;
           break;
       }
@@ -167,7 +167,7 @@ class InAppPurchaseController extends StateNotifier<AdRemovalPurchase> {
   void _reportError(String message) {
     _log.severe(message);
     showSnackBar(message);
-    _adRemoval = AdRemovalPurchase.error(message);
+    _adRemoval = AdRemovalPurchaseState.error(message);
     state = _adRemoval;
   }
 

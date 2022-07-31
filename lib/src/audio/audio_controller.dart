@@ -34,10 +34,6 @@ class AudioController {
 
   final Random _random = Random();
 
-  // TODO: hookify this
-  // TODO: make lifecycles work again
-  ValueNotifier<AppLifecycleState>? _lifecycleNotifier;
-
   /// Creates an instance that plays music and sound.
   ///
   /// Use [polyphony] to configure the number of sound effects (SFX) that can
@@ -58,18 +54,7 @@ class AudioController {
     _musicPlayer.onPlayerComplete.listen(_changeSong);
   }
 
-  /// Enables the [AudioController] to listen to [AppLifecycleState] events,
-  /// and therefore do things like stopping playback when the game
-  /// goes into the background.
-  void attachLifecycleNotifier(ValueNotifier<AppLifecycleState> lifecycleNotifier) {
-    _lifecycleNotifier?.removeListener(_handleAppLifecycle);
-
-    lifecycleNotifier.addListener(_handleAppLifecycle);
-    _lifecycleNotifier = lifecycleNotifier;
-  }
-
   void dispose() {
-    _lifecycleNotifier?.removeListener(_handleAppLifecycle);
     _stopAllSound();
     _musicPlayer.dispose();
     for (final player in _sfxPlayers) {
@@ -141,8 +126,8 @@ class AudioController {
     AudioPlayer().play(AssetSource("music/${_playlist.first.filename}"), mode: PlayerMode.lowLatency);
   }
 
-  void _handleAppLifecycle() {
-    switch (_lifecycleNotifier!.value) {
+  void handleAppLifecycle(AppLifecycleState state) {
+    switch (state) {
       case AppLifecycleState.paused:
       case AppLifecycleState.detached:
         _stopAllSound();
