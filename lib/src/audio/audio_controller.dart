@@ -1,8 +1,8 @@
 import 'dart:collection';
 import 'dart:math';
 
-import 'package:audioplayers/audioplayers.dart';
-import 'package:flutter/widgets.dart';
+import 'package:flame_audio/audio_pool.dart';
+import 'package:flame_audio/flame_audio.dart';
 import 'package:game_template/main.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:logging/logging.dart';
@@ -11,64 +11,38 @@ import '../settings/settings.dart';
 import 'songs.dart';
 import 'sounds.dart';
 
-/// Allows playing music and sound. A facade to `package:audioplayers`.
+// TODO: check if later versions of flame_audio (and underlying audioplayers library) has fixed audio on android
 class AudioController {
   static final _log = Logger('AudioController');
 
-  late AudioCache _sfxCache;
-  late List<Uri> _sfxCacheFilenames;
-
-  final AudioPlayer _musicPlayer;
-
   final ProviderRef _ref;
-
-  /// This is a list of [AudioPlayer] instances which are rotated to play
-  /// sound effects.
-  ///
-  /// Normally, we would just call [AudioCache.play] and let it procure its
-  /// own [AudioPlayer] every time. But this seems to lead to errors and
-  /// bad performance on iOS devices.
-  final List<AudioPlayer> _sfxPlayers;
 
   final Queue<Song> _playlist;
 
   final Random _random = Random();
 
-  /// Creates an instance that plays music and sound.
-  ///
-  /// Use [polyphony] to configure the number of sound effects (SFX) that can
-  /// play at the same time. A [polyphony] of `1` will always only play one
-  /// sound (a new sound will stop the previous one). See discussion
-  /// of [_sfxPlayers] to learn why this is the case.
-  ///
-  /// Background music does not count into the [polyphony] limit. Music will
-  /// never be overridden by sound effects.
-  AudioController(this._ref, {int polyphony = 2})
-      : assert(polyphony >= 1),
-        _musicPlayer = AudioPlayer(playerId: 'musicPlayer'),
-        _sfxPlayers =
-            Iterable.generate(polyphony, (i) => AudioPlayer(playerId: 'sfxPlayer#$i')).toList(growable: false),
-        _playlist = Queue.of(List<Song>.of(songs)..shuffle()) {
-    _sfxCache = AudioCache(prefix: 'assets/sfx/');
+  late AudioPool pool;
 
-    _musicPlayer.onPlayerComplete.listen(_changeSong);
-  }
+  late List<Uri> audioCache;
 
-  void dispose() {
-    _stopAllSound();
-    _musicPlayer.dispose();
-    for (final player in _sfxPlayers) {
-      player.dispose();
-    }
-  }
+  AudioController(this._ref) : _playlist = Queue.of(List<Song>.of(songs)..shuffle());
 
-  /// Preloads all sound effects.
   Future<void> initialize() async {
     _log.info('Preloading sound effects');
-    // This assumes there is only a limited number of sound effects in the game.
-    // If there are hundreds of long sound effect files, it's better
-    // to be more selective when preloading.
-    _sfxCacheFilenames = await _sfxCache.loadAll(SfxType.values.expand(soundTypeToFilename).toList());
+
+    audioCache = await FlameAudio.audioCache
+        .loadAll(SfxType.values.expand(soundTypeToFilename).map((sound) => "sfx/$sound").toList());
+
+    for (var uri in audioCache) {
+      await AudioPool.create(
+        uri.pathSegments.last,
+        minPlayers: 3,
+        maxPlayers: 4,
+      );
+    }
+
+    FlameAudio.bgm.initialize();
+    FlameAudio.bgm.audioPlayer?.onPlayerCompletion.listen(_changeSong);
 
     if (!_ref.read(settingsControllerProvider).muted && _ref.read(settingsControllerProvider).musicOn) {
       _startMusic();
@@ -77,7 +51,6 @@ class AudioController {
     _ref.read(settingsControllerProvider.notifier).addListener((state) {
       _musicOnHandler();
       _mutedHandler();
-      _soundsOnHandler();
     });
   }
 
@@ -103,18 +76,7 @@ class AudioController {
     final filename = options[_random.nextInt(options.length)];
     _log.info(() => '- Chosen filename: $filename');
 
-    //TODO: create a dynamic solution to utilize free player for new audio event
-    /* _sfxPlayers[type.index] */ _sfxPlayers[0].state == PlayerState.playing
-        ? _sfxPlayers[1].play(
-            AssetSource(
-                "sfx/${_sfxCacheFilenames.firstWhere((element) => element.pathSegments.last.contains(filename)).pathSegments.last}"),
-            volume: soundTypeToVolume(type),
-            mode: PlayerMode.lowLatency)
-        : _sfxPlayers[0].play(
-            AssetSource(
-                "sfx/${_sfxCacheFilenames.firstWhere((element) => element.pathSegments.last.contains(filename)).pathSegments.last}"),
-            volume: soundTypeToVolume(type),
-            mode: PlayerMode.lowLatency);
+    FlameAudio.play("sfx/$filename");
   }
 
   void _changeSong(void _) {
@@ -123,24 +85,7 @@ class AudioController {
     _playlist.addLast(_playlist.removeFirst());
     // Play the next song.
     _log.info(() => 'Playing ${_playlist.first} now.');
-    AudioPlayer().play(AssetSource("music/${_playlist.first.filename}"), mode: PlayerMode.lowLatency);
-  }
-
-  void handleAppLifecycle(AppLifecycleState state) {
-    switch (state) {
-      case AppLifecycleState.paused:
-      case AppLifecycleState.detached:
-        _stopAllSound();
-        break;
-      case AppLifecycleState.resumed:
-        if (!_ref.read(settingsControllerProvider).muted && _ref.read(settingsControllerProvider).musicOn) {
-          _resumeMusic();
-        }
-        break;
-      case AppLifecycleState.inactive:
-        // No need to react to this state change.
-        break;
-    }
+    FlameAudio.bgm.play("music/${_playlist.first.filename}");
   }
 
   void _musicOnHandler() {
@@ -169,62 +114,28 @@ class AudioController {
 
   Future<void> _resumeMusic() async {
     _log.info('Resuming music');
-    switch (_musicPlayer.state) {
-      case PlayerState.paused:
-        _log.info('Calling _musicPlayer.resume()');
-        try {
-          await _musicPlayer.resume();
-        } catch (e) {
-          // Sometimes, resuming fails with an "Unexpected" error.
-          _log.severe(e);
-          await _musicPlayer.play(AssetSource("music/${_playlist.first.filename}"), mode: PlayerMode.lowLatency);
-        }
-        break;
-      case PlayerState.stopped:
-        _log.info("resumeMusic() called when music is stopped. "
-            "This probably means we haven't yet started the music. "
-            "For example, the game was started with sound off.");
-        await _musicPlayer.play(AssetSource("music/${_playlist.first.filename}"), mode: PlayerMode.lowLatency);
-        break;
-      case PlayerState.playing:
-        _log.warning('resumeMusic() called when music is playing. '
-            'Nothing to do.');
-        break;
-      case PlayerState.completed:
-        _log.warning('resumeMusic() called when music is completed. '
-            "Music should never be 'completed' as it's either not playing "
-            "or looping forever.");
-        await _musicPlayer.play(AssetSource("music/${_playlist.first.filename}"), mode: PlayerMode.lowLatency);
-        break;
-    }
-  }
 
-  void _soundsOnHandler() {
-    for (final player in _sfxPlayers) {
-      if (player.state == PlayerState.playing) {
-        player.stop();
-      }
+    try {
+      await FlameAudio.bgm.resume();
+    } catch (e) {
+      // Sometimes, resuming fails with an "Unexpected" error.
+      _log.severe(e);
+      await FlameAudio.bgm.play("music/${_playlist.first.filename}");
     }
   }
 
   void _startMusic() {
     _log.info('starting music');
-    _musicPlayer.play(AssetSource("music/${_playlist.first.filename}"), mode: PlayerMode.lowLatency);
+    FlameAudio.bgm.play("music/${_playlist.first.filename}");
   }
 
   void _stopAllSound() {
-    if (_musicPlayer.state == PlayerState.playing) {
-      _musicPlayer.pause();
-    }
-    for (final player in _sfxPlayers) {
-      player.stop();
-    }
+    FlameAudio.bgm.pause();
   }
 
   void _stopMusic() {
     _log.info('Stopping music');
-    if (_musicPlayer.state == PlayerState.playing) {
-      _musicPlayer.pause();
-    }
+
+    FlameAudio.bgm.pause();
   }
 }

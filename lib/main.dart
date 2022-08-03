@@ -173,13 +173,22 @@ final routerProvider = Provider<GoRouter>((ref) {
   );
 });
 
-class MyApp extends HookConsumerWidget {
+class MyApp extends ConsumerStatefulWidget {
   const MyApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    useOnAppLifecycleStateChange((_, current) => ref.read(audioControllerProvider).handleAppLifecycle(current));
+  ConsumerState<ConsumerStatefulWidget> createState() => _MyAppState();
+}
 
+class _MyAppState extends ConsumerState<MyApp> {
+  @override
+  void initState() {
+    super.initState();
+    ref.read(audioControllerProvider);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return MaterialApp.router(
       title: 'Flutter Demo',
       theme: ThemeData.from(
