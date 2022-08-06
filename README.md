@@ -1,6 +1,6 @@
 ## Google's Flutter game_template modified to use Riverpod, flutter_hooks and freezed.
 
-### Since it uses freezed to not forget to flutter pub run build_runner build after git clone to generate the required models!
+### Since it uses freezed to not forget to ´´´flutter pub run build_runner build´´´ after git clone to generate the required models!
 
 A starter game in Flutter with all the bells and whistles
 of a mobile (iOS & Android) game including the following features:
